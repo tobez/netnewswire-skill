@@ -146,10 +146,15 @@ osascript scripts/subscribe.applescript https://example.com/feed.xml webdev
   **first** `|` per known field rather than naive `split("|")`.
 - **Locale-formatted dates.** If you need a parseable timestamp, use the article URL or `read-article` and pull it from the HTML
   — AppleScript's `date as string` is not machine-friendly.
-- **Script timing:** `get-articles` / `search-articles` iterate every article of every feed. On a large library (hundreds of
-  feeds × thousands of articles) a run can take several seconds. Use `--limit` and the feed/folder filters aggressively.
-- **`read-article` scans everything** until it finds the ID. For repeated lookups in a session, prefer a single `get-articles`
-  call and cache the metadata.
+- **Script timing:** `get-articles` iterates every article of every feed. On a large library (hundreds of feeds × thousands of
+  articles) a run can take several seconds. Use `--limit` and the feed/folder filters aggressively. `search-articles`,
+  `read-article`, and `mark-articles` instead filter per feed with a NetNewsWire-side `whose` clause and allow each Apple event
+  up to 300 s, so on large libraries they can still take tens of seconds or more — when invoking them from the Bash tool, pass a
+  timeout of at least 300000 ms.
+- **`read-article` checks feeds one by one** until the ID matches (a missing ID visits every feed). For repeated lookups in a
+  session, prefer a single `get-articles` call and cache the metadata.
+- **`search-articles` matches case-insensitively** across title, `html`, `contents`, and `summary`, so a term appearing only in
+  markup (e.g. a URL or tag attribute) can match too.
 - **Batch `mark-articles` calls.** The script filters articles via a single per-feed `whose` predicate, so 50 IDs in one
   invocation cost about the same as 1; many single-ID invocations cost N× as much. ~200 IDs per call is a sane practical
   ceiling.
