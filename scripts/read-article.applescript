@@ -8,23 +8,50 @@ on run argv
 	set targetId to item 1 of argv
 
 	tell application "NetNewsWire"
-		repeat with acct in every account
-			repeat with nthFeed in every feed of acct
-				repeat with a in every article of nthFeed
-					if (id of a) is targetId then return my formatArticle(a)
+		with timeout of 300 seconds
+			repeat with acct in every account
+				repeat with nthFeed in every feed of acct
+					set found to my findInFeed(nthFeed, targetId)
+					if found is not missing value then return found
 				end repeat
-			end repeat
-			repeat with fld in every folder of acct
-				repeat with nthFeed in every feed of fld
-					repeat with a in every article of nthFeed
-						if (id of a) is targetId then return my formatArticle(a)
+				repeat with fld in every folder of acct
+					repeat with nthFeed in every feed of fld
+						set found to my findInFeed(nthFeed, targetId)
+						if found is not missing value then return found
 					end repeat
 				end repeat
 			end repeat
-		end repeat
+		end timeout
 		return "ERROR:Article not found"
 	end tell
 end run
+
+on findInFeed(theFeed, targetId)
+	tell application "NetNewsWire"
+		with timeout of 300 seconds
+			try
+				set matched to (every article of theFeed whose (id is targetId))
+				if (count of matched) > 0 then
+					return my formatArticle(item 1 of matched)
+				end if
+			on error errMsg number errNum
+				-- Re-raise systemic errors so the caller sees them instead of a
+				-- misleading "Article not found". Per-feed transient errors are
+				-- still swallowed so one bad feed doesn't abort the whole lookup.
+				-- Codes:
+				--   -128  user cancelled
+				--   -600  application not running
+				--   -609  connection invalid
+				--   -1712 Apple Event timed out (despite the outer 300s wrapper)
+				--   -1743 not authorized (automation permission denied)
+				if errNum is -128 or errNum is -600 or errNum is -609 or errNum is -1712 or errNum is -1743 then
+					error errMsg number errNum
+				end if
+			end try
+		end timeout
+	end tell
+	return missing value
+end findInFeed
 
 on formatArticle(a)
 	tell application "NetNewsWire"
